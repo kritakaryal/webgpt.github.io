@@ -1,64 +1,86 @@
-const message = document.getElementById('message');
-const historyList = document.getElementById('history-list');
-const copyBtn = document.getElementById('copy-btn');
+const API_URL = 'https://api.openai.com/v1/engine/davinci-codex/completions';
 
+// Fetch API key from environment secret in GitHub
 const API_KEY = process.env.API_KEY;
 
-const GPT_API_URL = 'https://api.openai.com/v1/engine/davinci-codex/completions';
+// Retrieve HTML elements
+const promptInput = document.getElementById('prompt-input');
+const maxTokensInput = document.getElementById('max-tokens-input');
+const temperatureInput = document.getElementById('temperature-input');
+const topPInput = document.getElementById('top-p-input');
+const submitButton = document.getElementById('submit-button');
+const responseContainer = document.getElementById('response-container');
+const historyContainer = document.getElementById('history-container');
+const copyButton = document.getElementById('copy-button');
 
-const headers = {
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${process.env.API_KEY}`,
-};
+// Initialize history array
+let history = [];
 
-const prompt = {
-  prompt: 'Hello, how are you?',
-  temperature: 0.7,
-  max_tokens: 300,
-  n: 1,
-  stream: false,
-  stop: '\n',
-};
+// Add event listener to submit button
+submitButton.addEventListener('click', async () => {
+  // Retrieve user input values
+  const prompt = promptInput.value;
+  const maxTokens = maxTokensInput.value;
+  const temperature = temperatureInput.value;
+  const topP = topPInput.value;
 
-message.addEventListener('keyup', (e) => {
-  if (e.key === 'Enter') {
-    getResponse();
-  }
-});
-
-async function getResponse() {
-  const input = message.value.trim();
-
-  if (!input) {
-    return;
-  }
-
-  message.value = '';
-  message.focus();
-
-  const data = {
-    ...prompt,
-    prompt: `${prompt.prompt} ${input}`,
+  // Construct request body
+  const requestBody = {
+    prompt: prompt,
+    max_tokens: maxTokens,
+    temperature: temperature,
+    top_p: topP
   };
 
-  const response = await axios.post(GPT_API_URL, data, { headers });
+  // Construct request headers
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${API_KEY}`
+  };
 
-  const answer = response.data.choices[0].text.trim();
-
-  const historyItem = document.createElement('li');
-  historyItem.innerHTML = `
-    <span>${input}</span>
-    <i class="fas fa-long-arrow-alt-right"></i>
-    <span>${answer}</span>
-    <button class="copy-btn" data-answer="${answer}">Copy</button>
-  `;
-  historyList.insertBefore(historyItem, historyList.firstChild);
-
-  copyBtn.disabled = false;
-
-  copyBtn.addEventListener('click', () => {
-    const text = historyItem.querySelector('span:last-child').innerText;
-    navigator.clipboard.writeText(text);
-    copyBtn.innerText = 'Copied!';
+  // Send POST request to OpenAI API
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(requestBody)
   });
-}
+
+  // Parse response body
+  const responseBody = await response.json();
+
+  // Display response
+  const responseHTML = `<p>${responseBody.choices[0].text}</p>`;
+  responseContainer.innerHTML = responseHTML;
+
+  // Add request and response to history array
+  const historyItem = { request: requestBody, response: responseBody };
+  history.push(historyItem);
+
+  // Update history container
+  let historyHTML = '';
+  for (let i = 0; i < history.length; i++) {
+    historyHTML += `<div><h4>Request ${i + 1}</h4><pre>${JSON.stringify(history[i].request, null, 2)}</pre><h4>Response ${i + 1}</h4><pre>${JSON.stringify(history[i].response, null, 2)}</pre></div>`;
+  }
+  historyContainer.innerHTML = historyHTML;
+
+  // Enable copy button
+  copyButton.disabled = false;
+});
+
+// Add event listener to copy button
+copyButton.addEventListener('click', () => {
+  // Create textarea element
+  const textarea = document.createElement('textarea');
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  textarea.value = JSON.stringify(history, null, 2);
+  document.body.appendChild(textarea);
+
+  // Select and copy text
+  textarea.select();
+  document.execCommand('copy');
+
+  // Remove textarea element
+  document.body.removeChild(textarea);
+});
