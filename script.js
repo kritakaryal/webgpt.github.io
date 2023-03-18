@@ -2,6 +2,8 @@ const message = document.getElementById('message');
 const historyList = document.getElementById('history-list');
 const copyBtn = document.getElementById('copy-btn');
 
+const API_KEY = process.env.API_KEY;
+
 const GPT_API_URL = 'https://api.openai.com/v1/engine/davinci-codex/completions';
 
 const headers = {
